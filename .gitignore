@@ -1,0 +1,71 @@
+# ==========================================================
+# Geral / SO / Editores
+# ==========================================================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.log
+
+# Variáveis de ambiente (nunca versionar segredos)
+.env
+.env.*
+!.env.example
+
+# ==========================================================
+# Backend — Ruby on Rails (backend/)
+# ==========================================================
+/backend/.bundle
+/backend/log/*
+/backend/tmp/*
+!/backend/log/.keep
+!/backend/tmp/.keep
+/backend/tmp/pids/*
+!/backend/tmp/pids/.keep
+
+# Uploads locais e SQLite
+/backend/storage/*
+!/backend/storage/.keep
+/backend/tmp/storage/*
+!/backend/tmp/storage/.keep
+
+# Credenciais / master key
+/backend/config/master.key
+/backend/config/credentials/*.key
+
+# Assets compilados
+/backend/public/assets
+/backend/app/assets/builds/*
+!/backend/app/assets/builds/.keep
+
+# Kamal / deploy secrets
+/backend/.kamal/secrets*
+
+# ==========================================================
+# Frontend — Nuxt 4 + Yarn 4 Berry (frontend/)
+# ==========================================================
+/frontend/node_modules
+/frontend/.nuxt
+/frontend/.output
+/frontend/.data
+/frontend/dist
+/frontend/.nitro
+/frontend/.cache
+
+# Yarn Berry — ignora cache/estado, mantém releases/plugins/sdks
+/frontend/.yarn/*
+!/frontend/.yarn/patches
+!/frontend/.yarn/plugins
+!/frontend/.yarn/releases
+!/frontend/.yarn/sdks
+!/frontend/.yarn/versions
+/frontend/.pnp.*
+
+# Logs de package managers
+/frontend/*.log
+/frontend/.env
+/frontend/.env.*
+!/frontend/.env.example
