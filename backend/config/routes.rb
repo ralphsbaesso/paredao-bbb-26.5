@@ -1,5 +1,12 @@
 Rails.application.routes.draw do
-  # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
+  # Administrative area — every route here requires an authenticated AdminUser
+  # (token in the `Authorization: Bearer <token>` header), except login.
+  namespace :admin do
+    # POST /admin/session (login) and DELETE /admin/session (logout).
+    resource :session, only: %i[create destroy]
+    # GET /admin/profile — protected sample route / token validity check.
+    resource :profile, only: :show
+  end
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
   # Can be used by load balancers and uptime monitors to verify that the app is live.
