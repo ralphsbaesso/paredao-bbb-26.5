@@ -1,0 +1,22 @@
+# Artefatos e caches — nunca vão para o contexto de build.
+node_modules
+.nuxt
+.output
+.data
+.nitro
+.cache
+
+# Yarn Berry cache (o install roda dentro do build a partir do yarn.lock).
+.yarn/cache
+.yarn/install-state.gz
+
+# Git e arquivos de ambiente.
+.git
+.gitignore
+.env
+.env.*
+
+# Docker e logs.
+Dockerfile
+.dockerignore
+*.log
