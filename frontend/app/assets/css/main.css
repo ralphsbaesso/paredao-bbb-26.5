@@ -1,1 +1,180 @@
 @import "tailwindcss";
+
+/*
+ * Tokens centralizados de estilo (cor, tipografia, espaçamento, raios).
+ *
+ * As telas NÃO usam valores hardcoded — consomem estes tokens via utilitários
+ * Tailwind gerados abaixo (bg-surface, text-content, bg-primary, ...) ou pelas
+ * variáveis CSS `--bbb-*`.
+ *
+ * Dois temas derivam do MESMO conjunto de tokens semânticos:
+ *   - `light`  → padrão do sistema / telas públicas (ver docs/tasks/003-style.md)
+ *   - `dark`   → área administrativa (ver docs/tasks/004-login-admin.md)
+ * O tema é selecionado pelo atributo `data-theme` no elemento <html>, definido
+ * por cada layout. Os utilitários referenciam as variáveis em runtime (via
+ * `@theme inline`), então a troca de tema é apenas a troca do atributo.
+ */
+
+@theme {
+  /* Tipografia amigável (stack de sistema — sem dependência de rede). */
+  --font-sans: "Nunito", ui-rounded, ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* Raios arredondados. */
+  --radius-card: 1.5rem;
+  --radius-control: 0.85rem;
+
+  /* Paleta de marca (fixa, independente do tema). */
+  --color-brand-300: #ff8fb1;
+  --color-brand-400: #ff5c8a;
+  --color-brand-500: #f43f6f;
+  --color-brand-600: #e11d5b;
+}
+
+@layer base {
+  /* Tema light (padrão). */
+  :root,
+  :root[data-theme="light"] {
+    --bbb-bg: #fdf2f8;
+    --bbb-surface: #ffffff;
+    --bbb-surface-muted: #fce7f0;
+    --bbb-content: #1f2430;
+    --bbb-muted: #6b7280;
+    --bbb-line: #f4cfe0;
+    --bbb-primary: #f43f6f;
+    --bbb-primary-hover: #e11d5b;
+    --bbb-primary-content: #ffffff;
+    --bbb-danger: #dc2626;
+    --bbb-danger-surface: #fee2e2;
+    --bbb-focus: rgba(244, 63, 111, 0.45);
+  }
+
+  /* Tema dark (área administrativa). */
+  :root[data-theme="dark"] {
+    --bbb-bg: #0f1117;
+    --bbb-surface: #191c26;
+    --bbb-surface-muted: #232735;
+    --bbb-content: #f3f4f6;
+    --bbb-muted: #9aa1b1;
+    --bbb-line: #2c313f;
+    --bbb-primary: #f43f6f;
+    --bbb-primary-hover: #ff5c8a;
+    --bbb-primary-content: #ffffff;
+    --bbb-danger: #f87171;
+    --bbb-danger-surface: #3b1d22;
+    --bbb-focus: rgba(244, 63, 111, 0.55);
+  }
+
+  body {
+    background-color: var(--bbb-bg);
+    color: var(--bbb-content);
+    font-family: var(--font-sans);
+  }
+}
+
+/* Mapeia os tokens semânticos para utilitários Tailwind, resolvidos em runtime
+ * (o `inline` faz o utilitário emitir `var(--bbb-*)`, habilitando a troca de
+ * tema pelo atributo `data-theme`). */
+@theme inline {
+  --color-bg: var(--bbb-bg);
+  --color-surface: var(--bbb-surface);
+  --color-surface-muted: var(--bbb-surface-muted);
+  --color-content: var(--bbb-content);
+  --color-muted: var(--bbb-muted);
+  --color-line: var(--bbb-line);
+  --color-primary: var(--bbb-primary);
+  --color-primary-hover: var(--bbb-primary-hover);
+  --color-primary-content: var(--bbb-primary-content);
+  --color-danger: var(--bbb-danger);
+  --color-danger-surface: var(--bbb-danger-surface);
+}
+
+/*
+ * Botões padronizados e animados (base da diretriz da 003, reutilizada na 004).
+ * Animações sutis de hover/active/focus + estado de carregamento.
+ */
+@layer components {
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: var(--radius-control);
+    padding: 0.75rem 1.25rem;
+    font-weight: 700;
+    line-height: 1.2;
+    cursor: pointer;
+    user-select: none;
+    transition: transform 120ms ease, background-color 120ms ease,
+      box-shadow 120ms ease, opacity 120ms ease;
+  }
+
+  .btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--bbb-focus);
+  }
+
+  .btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+
+  .btn:active:not(:disabled) {
+    transform: translateY(0) scale(0.98);
+  }
+
+  .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    background-color: var(--bbb-primary);
+    color: var(--bbb-primary-content);
+    box-shadow: 0 8px 22px -8px var(--bbb-primary);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--bbb-primary-hover);
+  }
+
+  .btn-ghost {
+    background-color: transparent;
+    color: var(--bbb-content);
+    border: 1px solid var(--bbb-line);
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    background-color: var(--bbb-surface-muted);
+  }
+
+  .btn-spinner {
+    width: 1.05rem;
+    height: 1.05rem;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 9999px;
+    animation: btn-spin 0.6s linear infinite;
+  }
+}
+
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Movimento reduzido: degradar animações para o mínimo. */
+@media (prefers-reduced-motion: reduce) {
+  .btn {
+    transition-duration: 1ms;
+  }
+
+  .btn:hover:not(:disabled),
+  .btn:active:not(:disabled) {
+    transform: none;
+  }
+
+  .btn-spinner {
+    animation-duration: 1.2s;
+  }
+}
