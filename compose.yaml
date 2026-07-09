@@ -20,7 +20,6 @@ services:
     ports:
       - "${APP_PORT:-3000}:3000"
     environment:
-      RAILS_ENV: development
       # Rails mescla DATABASE_URL sobre config/database.yml; `db` resolve pela rede do Compose.
       DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-backend_development}"
       REDIS_URL: "${REDIS_URL:-redis://redis:6379/0}"
@@ -33,7 +32,7 @@ services:
       - tmp:/rails/tmp
     # `up` sobe o container apenas em espera (sem servidor Rails): o boot da API
     # fica a cargo de `task api:up`. O ENTRYPOINT ainda prepara o banco antes disto.
-    command: ["tail", "-f", "/dev/null"]
+    command: ["bin/rails","server","-b","0.0.0.0","-p","3000"]
     depends_on:
       db:
         condition: service_healthy
@@ -89,6 +88,40 @@ services:
     depends_on:
       - app
 
+  # --- Observabilidade (task 009) ---------------------------------------------
+  # Prometheus faz o scrape das métricas expostas pela API em app:3000/metrics.
+  # A configuração de scrape é versionada em infra/monitoring/prometheus/.
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./infra/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    depends_on:
+      - app
+
+  # Grafana provisionado como código: data source (Prometheus) e os 3 dashboards
+  # vêm de infra/monitoring/grafana/ (nada criado só pela UI). Publica em 3002
+  # para não colidir com a API (3000) nem o frontend (3001).
+  grafana:
+    image: grafana/grafana:11.4.0
+    ports:
+      - "${GRAFANA_PORT:-3002}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_USER:-admin}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_PASSWORD:-admin}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./infra/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
 volumes:
   pg_data:
   redis_data:
@@ -96,3 +129,5 @@ volumes:
   tmp:
   frontend_node_modules:
   frontend_nuxt:
+  prometheus_data:
+  grafana_data:

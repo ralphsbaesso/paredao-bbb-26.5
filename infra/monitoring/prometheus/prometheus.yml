@@ -1,0 +1,21 @@
+# Configuração de scrape do Prometheus (task 009).
+# Coleta as métricas expostas pela API Rails em /metrics (yabeda-rails +
+# yabeda-prometheus). Os alvos resolvem pela rede interna do Compose.
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  # Métricas da própria stack do Prometheus.
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # API do Paredão. O servidor precisa estar de pé (`task api:up`) para o alvo
+  # ficar "up" — o container `app` sobe em espera até então.
+  - job_name: 'paredao-api'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['app:3000']
+        labels:
+          service: 'backend'

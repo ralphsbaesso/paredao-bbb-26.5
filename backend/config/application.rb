@@ -1,6 +1,18 @@
 require_relative 'boot'
 
 require 'rails'
+require 'logger'
+require 'json'
+require 'time'
+
+class JsonLogFormatter < ::Logger::Formatter
+  def call(severity, time, progname, msg)
+    envelope = { timestamp: time.utc.iso8601(3), level: severity }
+    envelope[:progname] = progname if progname
+    payload = msg.is_a?(Hash) ? envelope.merge(msg) : envelope.merge(message: msg2str(msg))
+    "#{JSON.generate(payload)}\n"
+  end
+end
 # Pick the frameworks you want:
 require 'active_model/railtie'
 require 'active_job/railtie'
@@ -40,5 +52,7 @@ module Backend
     # Middleware like session, flash, cookies can be added back manually.
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
+
+    config.log_formatter = JsonLogFormatter.new
   end
 end

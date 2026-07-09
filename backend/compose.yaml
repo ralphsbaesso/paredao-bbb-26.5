@@ -13,8 +13,8 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     # Publish Puma to the host. Container always listens on 3000 (see Dockerfile.dev).
-    ports:
-      - "${APP_PORT:-3000}:3000"
+    # ports:
+    #   - "${APP_PORT:-3000}:3000"
     environment:
       # Rails merges DATABASE_URL on top of config/database.yml; `db` resolves
       # over the Compose network.

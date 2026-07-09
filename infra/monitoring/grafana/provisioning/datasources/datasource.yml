@@ -1,0 +1,12 @@
+# Data source do Grafana provisionado como código (task 009).
+# O uid fixo `prometheus` é referenciado pelos dashboards versionados.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

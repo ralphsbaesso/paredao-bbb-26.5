@@ -1,0 +1,121 @@
+{
+  "uid": "paredao-slo-sli",
+  "title": "Paredão · SLO / SLI (votação)",
+  "tags": ["paredao", "slo"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "5s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "SLO",
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 0 },
+      "options": {
+        "mode": "markdown",
+        "content": "### SLO do fluxo crítico (votação — `POST /votes`)\n\n**99% das requisições de voto respondidas com sucesso (não-5xx) em menos de 500 ms**, avaliado em janela deslizante de 30 min.\n\n- **SLI de disponibilidade** = requisições de voto não-5xx / total de requisições de voto.\n- **SLI de latência** = requisições de voto atendidas em < 500 ms / total.\n- **Error budget** = fração do orçamento de 1% de falhas ainda disponível."
+      }
+    },
+    {
+      "id": 2,
+      "type": "gauge",
+      "title": "SLI de disponibilidade (30m)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 6 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent", "decimals": 3, "min": 95, "max": 100,
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "yellow", "value": 99 },
+            { "color": "green", "value": 99.9 }
+          ] }
+        },
+        "overrides": []
+      },
+      "options": { "showThresholdLabels": false, "showThresholdMarkers": true, "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        { "refId": "A", "expr": "(sum(rate(rails_requests_total{controller=\"votes\",status!~\"5..\"}[30m])) / clamp_min(sum(rate(rails_requests_total{controller=\"votes\"}[30m])), 1)) * 100 or vector(100)" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "gauge",
+      "title": "SLI de latência — % < 500 ms (30m)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 6 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent", "decimals": 3, "min": 95, "max": 100,
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "yellow", "value": 99 },
+            { "color": "green", "value": 99.9 }
+          ] }
+        },
+        "overrides": []
+      },
+      "options": { "showThresholdLabels": false, "showThresholdMarkers": true, "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        { "refId": "A", "expr": "(sum(rate(rails_request_duration_seconds_bucket{controller=\"votes\",le=\"0.5\"}[30m])) / clamp_min(sum(rate(rails_request_duration_seconds_count{controller=\"votes\"}[30m])), 1)) * 100 or vector(100)" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "SLO alvo",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 6 },
+      "fieldConfig": { "defaults": { "unit": "percent", "decimals": 2, "color": { "mode": "fixed", "fixedColor": "blue" } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        { "refId": "A", "expr": "vector(99)" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "gauge",
+      "title": "Error budget restante (30m)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 6 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent", "decimals": 1, "min": 0, "max": 100,
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "yellow", "value": 25 },
+            { "color": "green", "value": 60 }
+          ] }
+        },
+        "overrides": []
+      },
+      "options": { "showThresholdLabels": false, "showThresholdMarkers": true, "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        { "refId": "A", "expr": "clamp_min(100 * (1 - ((1 - (sum(rate(rails_requests_total{controller=\"votes\",status!~\"5..\"}[30m])) / clamp_min(sum(rate(rails_requests_total{controller=\"votes\"}[30m])), 1))) / 0.01)), 0) or vector(100)" }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "SLI de disponibilidade vs SLO",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 14 },
+      "fieldConfig": {
+        "defaults": { "unit": "percent", "min": 95, "max": 100, "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "SLO (99%)" }, "properties": [ { "id": "custom.lineStyle", "value": { "dash": [10, 10], "fill": "dash" } }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "refId": "A", "expr": "(sum(rate(rails_requests_total{controller=\"votes\",status!~\"5..\"}[5m])) / clamp_min(sum(rate(rails_requests_total{controller=\"votes\"}[5m])), 1)) * 100", "legendFormat": "SLI disponibilidade" },
+        { "refId": "B", "expr": "vector(99)", "legendFormat": "SLO (99%)" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+# Provisionamento dos dashboards do Grafana como código (task 009).
+# Carrega todos os .json de /var/lib/grafana/dashboards (montado do repositório).
+apiVersion: 1
+
+providers:
+  - name: 'paredao'
+    orgId: 1
+    folder: 'Paredão BBB'
+    type: file
+    disableDeletion: false
+    editable: true
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
