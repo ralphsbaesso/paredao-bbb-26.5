@@ -6,6 +6,9 @@ Rails.application.routes.draw do
     resource :session, only: %i[create destroy]
     # GET /admin/profile — protected sample route / token validity check.
     resource :profile, only: :show
+    resources :events, only: :create do
+      member { patch :close }
+    end
   end
 
   resources :votes, only: :create
