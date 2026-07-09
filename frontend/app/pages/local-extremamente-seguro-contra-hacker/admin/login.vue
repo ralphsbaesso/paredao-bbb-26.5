@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Tela de login do administrador (docs/tasks/004-login-admin.md).
+ * Tela de login do administrador (docs/tasks/004-login-admin.md, 008-pages.md).
  *
  * Única porta de entrada da área restrita: SÓ o formulário de login — sem
  * "esqueci minha senha" e sem cadastro. Rota "secreta" (ofuscação, não

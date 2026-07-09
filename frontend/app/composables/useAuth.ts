@@ -22,9 +22,12 @@ interface SessionPayload {
   admin_user: AdminUser
 }
 
-// Rotas da área administrativa (ver docs/tasks/004-login-admin.md).
-export const ADMIN_LOGIN_PATH = '/local-extremamente-seguro-contra-hacker/admin'
-export const ADMIN_HOME_PATH = '/local-extremamente-seguro-contra-hacker/gestao'
+// Rotas da área administrativa (ver docs/tasks/004-login-admin.md e 008-pages.md).
+export const ADMIN_BASE_PATH = '/local-extremamente-seguro-contra-hacker/admin'
+export const ADMIN_LOGIN_PATH = `${ADMIN_BASE_PATH}/login`
+export const ADMIN_HOME_PATH = ADMIN_BASE_PATH
+export const ADMIN_EVENTS_PATH = `${ADMIN_BASE_PATH}/events`
+export const ADMIN_PARTICIPANTS_PATH = `${ADMIN_BASE_PATH}/participants`
 
 export function useAuth() {
   const config = useRuntimeConfig()
