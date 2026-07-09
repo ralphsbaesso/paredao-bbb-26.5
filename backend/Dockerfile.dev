@@ -1,0 +1,45 @@
+# syntax=docker/dockerfile:1
+# check=error=true
+
+# Development image for the Paredão BBB backend (Rails 8.1, API-only).
+#
+# This is deliberately separate from ./Dockerfile, which targets production
+# (RAILS_ENV=production, Thruster, non-root uid 1000, gems without :development).
+# Here we run RAILS_ENV=development with every gem group installed and rely on
+# the source bind-mount in compose.yaml for hot-reload.
+
+# Make sure RUBY_VERSION matches the Ruby version in .ruby-version
+ARG RUBY_VERSION=4.0.5
+FROM docker.io/library/ruby:$RUBY_VERSION-slim
+
+# Rails app lives here
+WORKDIR /rails
+
+# Packages:
+#   - build-essential / libpq-dev / libyaml-dev / pkg-config: compile native gems (pg, etc.)
+#   - postgresql-client: pg_isready + psql, used by `bin/rails db:*`
+#   - libvips: image_processing
+#   - git / curl: general tooling
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y \
+      build-essential curl git libpq-dev libvips libyaml-dev pkg-config postgresql-client && \
+    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+
+# Development environment. Gems live at BUNDLE_PATH (outside /rails), so the
+# source bind-mount in compose.yaml does not clobber the installed gems.
+ENV RAILS_ENV="development" \
+    BUNDLE_PATH="/usr/local/bundle"
+
+# Install gems first so this layer is cached across source changes.
+COPY Gemfile Gemfile.lock ./
+RUN bundle install
+
+# Fallback copy for plain `docker run`; at runtime compose bind-mounts the source over this.
+COPY . .
+
+# Entrypoint prepares the database and clears any stale server pid.
+ENTRYPOINT ["bin/docker-entrypoint-dev"]
+
+# Bind to 0.0.0.0 so the mapped host port can reach Puma inside the container.
+EXPOSE 3000
+CMD ["bin/rails", "server", "-b", "0.0.0.0", "-p", "3000"]

@@ -1,0 +1,71 @@
+# Development orchestration for the Paredão BBB backend.
+# Bring the whole stack up from backend/ with:  docker compose up
+#
+# Values come from a local .env (see .env.example); the `${VAR:-default}`
+# fallbacks keep `docker compose up` working even without a .env file.
+# No real secrets live here.
+
+name: paredao-backend
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    # Publish Puma to the host. Container always listens on 3000 (see Dockerfile.dev).
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      RAILS_ENV: development
+      # Rails merges DATABASE_URL on top of config/database.yml; `db` resolves
+      # over the Compose network.
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-backend_development}"
+      REDIS_URL: "${REDIS_URL:-redis://redis:6379/0}"
+      RAILS_MAX_THREADS: "${RAILS_MAX_THREADS:-5}"
+    volumes:
+      # Bind-mount the source for hot-reload...
+      - .:/rails
+      # ...but keep container-managed dirs out of the host mount so build
+      # artifacts and pidfiles are not clobbered.
+      - bundle:/usr/local/bundle
+      - tmp:/rails/tmp
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:-postgres}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+      POSTGRES_DB: "${POSTGRES_DB:-backend_development}"
+    volumes:
+      # postgres:18 stores data in a version-specific subdir; mount the parent
+      # (see https://github.com/docker-library/postgres/pull/1259).
+      - pg_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-backend_development}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:8
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+volumes:
+  pg_data:
+  redis_data:
+  bundle:
+  tmp:
