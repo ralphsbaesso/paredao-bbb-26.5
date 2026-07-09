@@ -19,8 +19,14 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
+    // Base usada nas chamadas SSR (servidor Nuxt → API pela rede interna do
+    // Compose). Sobrescrita em runtime por NUXT_API_BASE_INTERNAL. Server-only:
+    // nunca é exposta ao browser. Cai para a base pública quando não definida.
+    apiBaseInternal: '',
     public: {
-      // Sobrescrito em runtime por NUXT_PUBLIC_API_BASE — nunca hardcoded no build.
+      // Base usada pelo browser (client-side). Sobrescrita em runtime por
+      // NUXT_PUBLIC_API_BASE — nunca hardcoded no build. Precisa ser um host que
+      // o navegador alcance (ex.: http://localhost:3000), não o hostname interno.
       apiBase: '',
     },
   },

@@ -76,9 +76,13 @@ services:
     ports:
       - "${FRONTEND_PORT:-3001}:3000"
     environment:
-      # URL da API injetada em runtime (nunca hardcoded). Em SSR o servidor Nuxt
-      # alcança o backend pela rede interna do Compose (serviço `app`).
-      NUXT_PUBLIC_API_BASE: "${NUXT_PUBLIC_API_BASE:-http://app:3000}"
+      # URL da API injetada em runtime (nunca hardcoded). São DUAS bases:
+      # - pública: usada pelo browser, precisa ser um host alcançável do host
+      #   (a API é publicada em localhost:${APP_PORT:-3000}).
+      # - interna: usada no SSR, o servidor Nuxt alcança o backend pela rede
+      #   interna do Compose (serviço `app`).
+      NUXT_PUBLIC_API_BASE: "${NUXT_PUBLIC_API_BASE:-http://localhost:3000}"
+      NUXT_API_BASE_INTERNAL: "${NUXT_API_BASE_INTERNAL:-http://app:3000}"
     volumes:
       # Bind-mount do código para hot-reload...
       - ./frontend:/app

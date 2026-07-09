@@ -45,7 +45,13 @@ export function useAuth() {
   const isAuthenticated = computed(() => Boolean(token.value))
 
   function apiUrl(path: string) {
-    return `${config.public.apiBase}${path}`
+    // No SSR o fetch sai do servidor Nuxt e alcança a API pela rede interna do
+    // Compose (apiBaseInternal); no browser usa a base pública (apiBase). Sem a
+    // base interna, cai para a pública.
+    const base = import.meta.server
+      ? config.apiBaseInternal || config.public.apiBase
+      : config.public.apiBase
+    return `${base}${path}`
   }
 
   function authHeaders(): Record<string, string> {
