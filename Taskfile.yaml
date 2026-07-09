@@ -1,0 +1,49 @@
+# Taskfile do Paredão BBB 26.5 — atalhos para o ambiente de desenvolvimento.
+# Requer go-task: https://taskfile.dev  (instale e rode `task --list`).
+#
+# Fluxo esperado:  task up  ->  task setup  ->  task api:up
+#
+# Todas as tasks operam sobre o compose.yaml DA RAIZ (backend + frontend).
+version: '3'
+
+vars:
+  # Comando base do Compose reutilizado por todas as tasks (evita repetição).
+  COMPOSE: docker compose -f compose.yaml
+
+tasks:
+  up:
+    desc: Sobe todo o ambiente (app em espera, sem servidor Rails + db + redis + frontend).
+    cmds:
+      - '{{.COMPOSE}} up -d'
+
+  api:up:
+    desc: Inicia o servidor da API no container `app` já em execução (assume `up` prévio).
+    cmds:
+      - '{{.COMPOSE}} exec app bin/dev'
+
+  setup:
+    desc: Prepara o banco do backend (cria, migra e roda o seed); idempotente.
+    deps: [up]
+    cmds:
+      - '{{.COMPOSE}} exec app bin/rails db:prepare db:seed'
+
+  rspec:
+    desc: 'Roda o RSpec no container `app`. Ex.: task rspec -- spec/models/vote_spec.rb:42'
+    deps: [up]
+    cmds:
+      - '{{.COMPOSE}} exec app bundle exec rspec {{.CLI_ARGS}}'
+
+  build:
+    desc: Constrói as imagens Docker dos serviços.
+    cmds:
+      - '{{.COMPOSE}} build'
+
+  logs:
+    desc: Exibe e acompanha os logs de todos os serviços.
+    cmds:
+      - '{{.COMPOSE}} logs -f'
+
+  down:
+    desc: Para e remove todos os serviços.
+    cmds:
+      - '{{.COMPOSE}} down'

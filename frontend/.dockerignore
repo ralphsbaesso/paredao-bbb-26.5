@@ -17,6 +17,6 @@ node_modules
 .env.*
 
 # Docker e logs.
-Dockerfile
+Dockerfile*
 .dockerignore
 *.log

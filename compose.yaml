@@ -1,0 +1,98 @@
+# Orquestração de desenvolvimento do PROJETO INTEIRO (backend + frontend).
+# Suba o stack a partir da raiz com:  docker compose up   (ou `task up`).
+#
+# Espelha o backend/compose.yaml (task 006) reaproveitando app/db/redis, e
+# acrescenta o serviço `frontend` (Nuxt 4 SSR — task 001). Os atalhos ficam no
+# Taskfile.yaml da raiz. O backend/compose.yaml segue válido para trabalhar o
+# backend isoladamente.
+#
+# Valores vêm de um .env local (ver .env.example); os fallbacks `${VAR:-default}`
+# mantêm `docker compose up` funcionando mesmo sem .env. Nada de segredos reais aqui.
+
+name: paredao
+
+services:
+  app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    # Publica a Puma no host. O container sempre escuta em 3000 (ver Dockerfile.dev).
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      RAILS_ENV: development
+      # Rails mescla DATABASE_URL sobre config/database.yml; `db` resolve pela rede do Compose.
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-backend_development}"
+      REDIS_URL: "${REDIS_URL:-redis://redis:6379/0}"
+      RAILS_MAX_THREADS: "${RAILS_MAX_THREADS:-5}"
+    volumes:
+      # Bind-mount do código para hot-reload...
+      - ./backend:/rails
+      # ...mantendo diretórios geridos pelo container fora do mount do host.
+      - bundle:/usr/local/bundle
+      - tmp:/rails/tmp
+    # `up` sobe o container apenas em espera (sem servidor Rails): o boot da API
+    # fica a cargo de `task api:up`. O ENTRYPOINT ainda prepara o banco antes disto.
+    command: ["tail", "-f", "/dev/null"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:-postgres}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+      POSTGRES_DB: "${POSTGRES_DB:-backend_development}"
+    volumes:
+      # postgres:18 guarda dados em subdir versionado; monte o pai
+      # (ver https://github.com/docker-library/postgres/pull/1259).
+      - pg_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-backend_development}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:8
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    # Nuxt escuta em 3000 no container; publica em 3001 para não conflitar com a API.
+    ports:
+      - "${FRONTEND_PORT:-3001}:3000"
+    environment:
+      # URL da API injetada em runtime (nunca hardcoded). Em SSR o servidor Nuxt
+      # alcança o backend pela rede interna do Compose (serviço `app`).
+      NUXT_PUBLIC_API_BASE: "${NUXT_PUBLIC_API_BASE:-http://app:3000}"
+    volumes:
+      # Bind-mount do código para hot-reload...
+      - ./frontend:/app
+      # ...preservando node_modules e artefatos geridos pelo container.
+      - frontend_node_modules:/app/node_modules
+      - frontend_nuxt:/app/.nuxt
+    depends_on:
+      - app
+
+volumes:
+  pg_data:
+  redis_data:
+  bundle:
+  tmp:
+  frontend_node_modules:
+  frontend_nuxt:
