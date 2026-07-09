@@ -1,0 +1,69 @@
+# Taskfile do backend do Paredão BBB 26.5 — atalhos para o ambiente de desenvolvimento.
+# Requer go-task: https://taskfile.dev  (instale e rode `task --list`).
+#
+# Fluxo esperado:  task up  ->  task setup  ->  task api:up
+#
+# Todas as tasks operam sobre o compose.yaml DO BACKEND (app + db + redis).
+version: '3'
+
+vars:
+  # Comando base do Compose reutilizado por todas as tasks (evita repetição).
+  COMPOSE: docker compose -f compose.yaml
+
+tasks:
+  up:
+    desc: Sobe o ambiente do backend (app em espera, sem servidor Rails + db + redis).
+    cmds:
+      - '{{.COMPOSE}} up -d'
+
+  api:up:
+    desc: Inicia o servidor da API no container `app` já em execução (assume `up` prévio).
+    cmds:
+      - '{{.COMPOSE}} exec app bin/dev'
+
+  setup:
+    desc: 'Prepara o banco do backend (cria, migra e roda o seed); idempotente. Ex.: task setup RAILS_ENV=test'
+    deps: [up]
+    vars:
+      RAILS_ENV: '{{.RAILS_ENV | default "development"}}'
+    cmds:
+      - '{{.COMPOSE}} exec -e RAILS_ENV={{.RAILS_ENV}} app bin/rails db:prepare db:seed'
+
+  console:
+    desc: Abre o console do Rails no container `app`.
+    deps: [up]
+    cmds:
+      - '{{.COMPOSE}} exec app bin/rails console'
+
+  rspec:
+    desc: 'Roda o RSpec no container `app`. Ex.: task rspec -- spec/models/vote_spec.rb:42'
+    deps: [up]
+    cmds:
+      - '{{.COMPOSE}} exec app bundle exec rspec {{.CLI_ARGS}}'
+
+  rubocop:
+    desc: 'Roda o Rubocop no container `app`. Use `task rubocop -- -A` para autocorreção.'
+    deps: [up]
+    cmds:
+      - '{{.COMPOSE}} exec app bin/rubocop {{.CLI_ARGS}}'
+
+  ci:
+    desc: Roda a suíte de CI do backend (lint + análise de segurança) no container `app`.
+    deps: [up]
+    cmds:
+      - '{{.COMPOSE}} exec app bin/ci'
+
+  build:
+    desc: Constrói a imagem Docker do backend.
+    cmds:
+      - '{{.COMPOSE}} build'
+
+  logs:
+    desc: Exibe e acompanha os logs dos serviços do backend.
+    cmds:
+      - '{{.COMPOSE}} logs -f'
+
+  down:
+    desc: Para e remove os serviços do backend.
+    cmds:
+      - '{{.COMPOSE}} down'

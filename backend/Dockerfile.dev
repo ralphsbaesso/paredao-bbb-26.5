@@ -27,8 +27,7 @@ RUN apt-get update -qq && \
 
 # Development environment. Gems live at BUNDLE_PATH (outside /rails), so the
 # source bind-mount in compose.yaml does not clobber the installed gems.
-ENV RAILS_ENV="development" \
-    BUNDLE_PATH="/usr/local/bundle"
+ENV BUNDLE_PATH="/usr/local/bundle"
 
 # Install gems first so this layer is cached across source changes.
 COPY Gemfile Gemfile.lock ./

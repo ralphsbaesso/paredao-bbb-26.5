@@ -16,7 +16,6 @@ services:
     ports:
       - "${APP_PORT:-3000}:3000"
     environment:
-      RAILS_ENV: development
       # Rails merges DATABASE_URL on top of config/database.yml; `db` resolves
       # over the Compose network.
       DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-backend_development}"
@@ -29,6 +28,9 @@ services:
       # artifacts and pidfiles are not clobbered.
       - bundle:/usr/local/bundle
       - tmp:/rails/tmp
+    # `up` brings the container up idle (no Rails server): booting the API is left
+    # to `task api:up`. The ENTRYPOINT still prepares the database before this.
+    command: ["tail", "-f", "/dev/null"]
     depends_on:
       db:
         condition: service_healthy
