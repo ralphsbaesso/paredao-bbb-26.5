@@ -54,5 +54,13 @@ module Backend
     config.api_only = true
 
     config.log_formatter = JsonLogFormatter.new
+
+    config.middleware.use Rack::Static,
+      urls: { '/api-docs/v1/openapi.yaml' => 'v1/openapi.yaml' },
+      root: Rails.root.join('openapi').to_s,
+      cascade: true,
+      header_rules: [
+        [:all, { 'content-type' => 'application/yaml', 'cache-control' => 'public, max-age=300' }]
+      ]
   end
 end

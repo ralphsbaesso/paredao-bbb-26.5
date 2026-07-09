@@ -1,0 +1,600 @@
+openapi: 3.0.3
+info:
+  title: Paredão BBB 26.5 API
+  description: |
+    API REST do sistema de votação do **Paredão BBB 26.5**.
+
+    A API é *API-only* (Rails 8.1) e é consumida via HTTP pelo frontend e por
+    integradores. Este contrato é escrito e revisado **à mão** — é a fonte da
+    verdade da documentação e cobre apenas os endpoints já roteados.
+
+    Convenções:
+    - Erros de validação/negócio retornam `{ "errors": ["mensagem", ...] }`.
+    - Erros de autenticação/limite retornam `{ "error": "codigo" }`.
+    - Rotas sob `admin/*` (exceto o login) exigem `Authorization: Bearer <token>`.
+
+    > Observação: a rota de participantes está grafada como `partcipants`
+    > (typo existente no código) e está documentada **como está**.
+  version: 1.0.0
+
+servers:
+  - url: /
+    description: Mesma origem da UI (funciona em desenvolvimento e produção)
+  - url: http://localhost:3000
+    description: Servidor de desenvolvimento local
+
+tags:
+  - name: Sessão (Admin)
+    description: Autenticação de administradores.
+  - name: Perfil (Admin)
+    description: Rota protegida de exemplo / validação de token.
+  - name: Eventos (Admin)
+    description: Gestão de eventos (paredões).
+  - name: Participantes (Admin)
+    description: Gestão de participantes.
+  - name: Votos
+    description: Registro público de votos.
+  - name: Sistema
+    description: Health check.
+
+paths:
+  /admin/session:
+    post:
+      tags: [Sessão (Admin)]
+      summary: Login do admin
+      description: Autentica um administrador e emite um token de sessão (Bearer).
+      operationId: createAdminSession
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email_address: admin@paredao.tv
+              password: 's3cr3t-password'
+      responses:
+        '201':
+          description: Sessão criada; token retornado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+              example:
+                token: 'Yx3k9wq2vL8pQ0aZ...'
+                expires_at: '2026-07-10T12:00:00.000Z'
+                admin_user:
+                  id: 1
+                  email_address: admin@paredao.tv
+        '401':
+          description: Credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_credentials
+        '429':
+          description: Muitas tentativas de login (rate limit — 10 a cada 3 minutos).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: rate_limited
+    delete:
+      tags: [Sessão (Admin)]
+      summary: Logout do admin
+      description: Invalida o token da sessão atual.
+      operationId: destroyAdminSession
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Sessão encerrada (sem corpo).
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /admin/profile:
+    get:
+      tags: [Perfil (Admin)]
+      summary: Perfil do admin autenticado
+      description: |
+        Retorna o admin autenticado. Serve como verificação leve de validade do
+        token (rota protegida de exemplo).
+      operationId: showAdminProfile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Admin autenticado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserSummary'
+              example:
+                id: 1
+                email_address: admin@paredao.tv
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /admin/events:
+    post:
+      tags: [Eventos (Admin)]
+      summary: Cria um evento (paredão)
+      description: |
+        Cria um evento com título único e de 2 a 4 participantes já existentes,
+        referenciados por `partcipant_ids`.
+      operationId: createEvent
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEventRequest'
+            example:
+              title: 'Paredão #1'
+              partcipant_ids: [1, 2]
+      responses:
+        '201':
+          description: Evento criado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Título já existe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorsResponse'
+              example:
+                errors: ['Título já existe']
+        '422':
+          description: Número de participantes fora do intervalo (2 a 4) ou título inválido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorsResponse'
+              examples:
+                participantes:
+                  value:
+                    errors: ['Número de participantes inválido']
+                titulo:
+                  value:
+                    errors: ['Título inválido']
+
+  /admin/events/{id}/close:
+    patch:
+      tags: [Eventos (Admin)]
+      summary: Encerra um evento
+      description: Marca um evento como encerrado (define `closed_at`).
+      operationId: closeEvent
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Evento encerrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Evento inexistente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorsResponse'
+              example:
+                errors: ['Evento inválido']
+        '409':
+          description: Evento já encerrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorsResponse'
+              example:
+                errors: ['Evento já encerrado']
+
+  /admin/partcipants:
+    get:
+      tags: [Participantes (Admin)]
+      summary: Lista participantes
+      description: Retorna todos os participantes cadastrados.
+      operationId: listPartcipants
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de participantes.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Partcipant'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Participantes (Admin)]
+      summary: Cria participante
+      description: |
+        Cria um participante com apelido único e um avatar da lista permitida.
+      operationId: createPartcipant
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePartcipantRequest'
+            example:
+              nickname: 'Fael'
+              avatar: star
+      responses:
+        '201':
+          description: Participante criado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Partcipant'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Apelido já existe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorsResponse'
+              example:
+                errors: ['Apelido já existe']
+        '422':
+          description: Participante inválido (apelido ausente ou avatar fora da lista).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorsResponse'
+              example:
+                errors: ['Participante inválido']
+
+  /admin/partcipants/{id}:
+    get:
+      tags: [Participantes (Admin)]
+      summary: Detalha um participante
+      operationId: showPartcipant
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PartcipantId'
+      responses:
+        '200':
+          description: Participante encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Partcipant'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Participante inexistente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorsResponse'
+              example:
+                errors: ['Participante inválido']
+
+  /votes:
+    post:
+      tags: [Votos]
+      summary: Registra um voto
+      description: |
+        Endpoint público de alta escrita. Registra um voto de um `email` em um
+        `partcipant_id` dentro de um `event_id`. Votos ilimitados são permitidos.
+      operationId: createVote
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoteRequest'
+            example:
+              event_id: 1
+              partcipant_id: 2
+              email: fan@example.com
+      responses:
+        '201':
+          description: Voto registrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoteAccepted'
+              example:
+                status: ok
+        '404':
+          description: Evento ou participante inexistente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorsResponse'
+              examples:
+                evento:
+                  value:
+                    errors: ['Evento inválido']
+                participante:
+                  value:
+                    errors: ['Participante inválido']
+        '422':
+          description: Email inválido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorsResponse'
+              example:
+                errors: ['Email inválido']
+
+  /up:
+    get:
+      tags: [Sistema]
+      summary: Health check
+      description: |
+        Retorna 200 se a aplicação sobe sem exceções, caso contrário 500.
+        Usado por load balancers e monitores de uptime. Responde HTML.
+      operationId: healthCheck
+      security: []
+      responses:
+        '200':
+          description: Aplicação saudável.
+          content:
+            text/html:
+              schema:
+                type: string
+        '500':
+          description: Aplicação com falha.
+          content:
+            text/html:
+              schema:
+                type: string
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Token de sessão emitido por `POST /admin/session`, enviado no header
+        `Authorization: Bearer <token>`.
+
+  parameters:
+    EventId:
+      name: id
+      in: path
+      required: true
+      description: ID do evento.
+      schema:
+        type: integer
+        format: int64
+      example: 1
+    PartcipantId:
+      name: id
+      in: path
+      required: true
+      description: ID do participante.
+      schema:
+        type: integer
+        format: int64
+      example: 1
+
+  responses:
+    Unauthorized:
+      description: Token ausente, inválido ou expirado.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: unauthorized
+
+  schemas:
+    LoginRequest:
+      type: object
+      required: [email_address, password]
+      properties:
+        email_address:
+          type: string
+          format: email
+          example: admin@paredao.tv
+        password:
+          type: string
+          format: password
+          example: 's3cr3t-password'
+
+    SessionResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Token Bearer a ser usado nas rotas admin.
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Momento de expiração do token (nulo se sem expiração).
+        admin_user:
+          $ref: '#/components/schemas/AdminUserSummary'
+
+    AdminUserSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        email_address:
+          type: string
+          format: email
+          example: admin@paredao.tv
+
+    CreateEventRequest:
+      type: object
+      required: [title, partcipant_ids]
+      properties:
+        title:
+          type: string
+          description: Título único do evento.
+          example: 'Paredão #1'
+        partcipant_ids:
+          type: array
+          description: IDs de 2 a 4 participantes existentes.
+          minItems: 2
+          maxItems: 4
+          items:
+            type: integer
+            format: int64
+          example: [1, 2]
+
+    Event:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        title:
+          type: string
+          example: 'Paredão #1'
+        closed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Momento de encerramento; nulo enquanto o evento está aberto.
+          example: null
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreatePartcipantRequest:
+      type: object
+      required: [nickname, avatar]
+      properties:
+        nickname:
+          type: string
+          description: Apelido único do participante.
+          example: 'Fael'
+        avatar:
+          type: string
+          description: |
+            Identificador do avatar. Deve pertencer à lista permitida.
+          enum:
+            - sun
+            - moon
+            - star
+            - cloud
+            - rain
+            - storm
+            - snow
+            - wind
+            - rainbow
+            - comet
+            - planet
+            - meteor
+            - dawn
+            - dusk
+            - spark
+            - ember
+            - frost
+            - breeze
+            - tide
+            - wave
+            - coral
+            - pearl
+            - dune
+            - mesa
+            - canyon
+            - river
+            - forest
+            - meadow
+            - blossom
+            - harvest
+          example: star
+
+    Partcipant:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        nickname:
+          type: string
+          example: 'Fael'
+        avatar:
+          type: string
+          example: star
+        eliminated:
+          type: boolean
+          default: false
+          example: false
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    VoteRequest:
+      type: object
+      required: [event_id, partcipant_id, email]
+      properties:
+        event_id:
+          type: integer
+          format: int64
+          example: 1
+        partcipant_id:
+          type: integer
+          format: int64
+          example: 2
+        email:
+          type: string
+          format: email
+          description: Email do votante (usado para verificação humana).
+          example: fan@example.com
+
+    VoteAccepted:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+
+    ErrorsResponse:
+      type: object
+      description: Erros de validação/negócio.
+      properties:
+        errors:
+          type: array
+          items:
+            type: string
+          example: ['mensagem de erro']
+
+    ErrorResponse:
+      type: object
+      description: Erro de autenticação ou de limite de requisições.
+      properties:
+        error:
+          type: string
+          example: unauthorized

@@ -14,6 +14,8 @@ Rails.application.routes.draw do
 
   resources :votes, only: :create
 
+  mount Rswag::Ui::Engine => '/api-docs'
+
   mount Yabeda::Prometheus::Exporter => '/metrics', as: :metrics
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
