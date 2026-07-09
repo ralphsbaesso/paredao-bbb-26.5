@@ -11,12 +11,6 @@
 admin_email = ENV['ADMIN_EMAIL']
 admin_password = ENV['ADMIN_PASSWORD']
 
-if admin_email.blank? && Rails.env.development?
-  admin_email = 'admin@paredao.local'
-  admin_password = 'password123'
-  Rails.logger.info('[seeds] Using development admin fallback (admin@paredao.local).')
-end
-
 if admin_email.present? && admin_password.present?
   admin = AdminUser.find_or_initialize_by(email_address: admin_email)
   admin.password = admin_password
@@ -24,4 +18,32 @@ if admin_email.present? && admin_password.present?
   Rails.logger.info("[seeds] Admin user ready: #{admin.email_address}")
 else
   Rails.logger.warn('[seeds] Skipping admin seed: set ADMIN_EMAIL and ADMIN_PASSWORD.')
+end
+
+# Provision the first paredão event and its contestants. Idempotent: the event
+# is created only when no event exists yet, and participants are only created
+# up to a total of 12 — re-running never produces duplicates.
+EVENT_TITLE = 'Primeiro paredão do BBB 26 1/2'
+PARTICIPANTS_TARGET = 12
+
+if Event.exists?
+  Rails.logger.info('[seeds] Event already present; skipping event seed.')
+else
+  Event.create!(title: EVENT_TITLE)
+  Rails.logger.info("[seeds] Event ready: #{EVENT_TITLE}")
+end
+
+missing = PARTICIPANTS_TARGET - Partcipant.count
+if missing.positive?
+  missing.times do
+    nickname = nil
+    loop do
+      nickname = Faker::Internet.unique.username(specifier: 5..12)
+      break unless Partcipant.exists?(nickname: nickname)
+    end
+    Partcipant.create!(nickname: nickname, avatar: Partcipant::AVATARS.sample)
+  end
+  Rails.logger.info("[seeds] Created #{missing} participant(s); total is now #{Partcipant.count}.")
+else
+  Rails.logger.info("[seeds] Already have #{Partcipant.count} participant(s); skipping participant seed.")
 end
