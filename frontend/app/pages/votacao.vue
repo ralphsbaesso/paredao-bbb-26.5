@@ -9,13 +9,14 @@
  *   2. Votações anteriores (eventos encerrados) em cards; clicar abre o modal de
  *      resumo com os votos por participante. Sem eventos encerrados, a seção some.
  *
- * Dados MOCKADOS (sem backend nesta atividade).
+ * Dados vindos do backend (`GET /events`); o voto vai para `POST /votes`.
  */
 import type { Participant, VotingEvent } from '~/composables/useVotingData'
 
 useHead({ title: 'Votação · Paredão BBB 26.5' })
 
-const { currentEvent, closedEvents, addVote } = useVotingData()
+const { loadEvents, addVote } = useVotingData()
+const { currentEvent, closedEvents, pending, error, refresh } = loadEvents()
 
 const nf = new Intl.NumberFormat('pt-BR')
 // timeZone fixo p/ saída determinística (evita divergência de hidratação SSR).
@@ -30,6 +31,8 @@ const voteModalOpen = ref(false)
 const selectedParticipant = ref<Participant | null>(null)
 const email = ref('')
 const voteConfirmed = ref(false)
+const voting = ref(false)
+const voteError = ref<string | null>(null)
 
 const emailValid = computed(() => isValidEmail(email.value))
 
@@ -37,13 +40,24 @@ function openVote(participant: Participant) {
   selectedParticipant.value = participant
   email.value = ''
   voteConfirmed.value = false
+  voteError.value = null
   voteModalOpen.value = true
 }
 
-function confirmVote() {
-  if (!emailValid.value || !currentEvent.value || !selectedParticipant.value) return
-  addVote(currentEvent.value.id, selectedParticipant.value.id)
-  voteConfirmed.value = true
+async function confirmVote() {
+  if (!emailValid.value || !currentEvent.value || !selectedParticipant.value || voting.value) return
+  voting.value = true
+  voteError.value = null
+  try {
+    await addVote(currentEvent.value.id, selectedParticipant.value.id, email.value)
+    voteConfirmed.value = true
+    await refresh()
+  } catch (e: unknown) {
+    const data = (e as { data?: { errors?: string[] } })?.data
+    voteError.value = data?.errors?.[0] ?? 'Não foi possível registrar seu voto. Tente novamente.'
+  } finally {
+    voting.value = false
+  }
 }
 
 // --- Modal de resumo de evento anterior ------------------------------------
@@ -68,7 +82,22 @@ function openSummary(event: VotingEvent) {
         </h2>
 
         <div
-          v-if="currentEvent"
+          v-if="pending"
+          class="rounded-[var(--radius-card)] border border-line bg-surface p-8 text-center text-muted"
+        >
+          <p class="font-semibold text-content">Carregando votação…</p>
+        </div>
+
+        <div
+          v-else-if="error"
+          class="rounded-[var(--radius-card)] border border-dashed border-line bg-surface p-8 text-center"
+        >
+          <p class="font-semibold text-content">Não foi possível carregar a votação.</p>
+          <AppButton class="mt-3" variant="ghost" @click="refresh()">Tentar novamente</AppButton>
+        </div>
+
+        <div
+          v-else-if="currentEvent"
           class="rounded-[var(--radius-card)] border border-line bg-surface p-5 shadow-sm"
         >
           <p class="mb-1 text-sm font-semibold uppercase tracking-wide text-primary">
@@ -164,6 +193,14 @@ function openSummary(event: VotingEvent) {
           <p class="text-xs text-muted">
             Informe um e-mail válido para liberar o botão de votar.
           </p>
+
+          <p
+            v-if="voteError"
+            role="alert"
+            class="rounded-[var(--radius-control)] bg-red-500/10 px-3 py-2 text-sm font-medium text-red-500"
+          >
+            {{ voteError }}
+          </p>
         </div>
       </template>
 
@@ -185,8 +222,10 @@ function openSummary(event: VotingEvent) {
       <template #footer>
         <AppButton v-if="voteConfirmed" @click="voteModalOpen = false">Fechar</AppButton>
         <template v-else>
-          <AppButton variant="ghost" @click="voteModalOpen = false">Cancelar</AppButton>
-          <AppButton :disabled="!emailValid" @click="confirmVote">Votar</AppButton>
+          <AppButton variant="ghost" :disabled="voting" @click="voteModalOpen = false">Cancelar</AppButton>
+          <AppButton :disabled="!emailValid || voting" @click="confirmVote">
+            {{ voting ? 'Votando…' : 'Votar' }}
+          </AppButton>
         </template>
       </template>
     </BaseModal>

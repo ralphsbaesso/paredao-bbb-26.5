@@ -32,6 +32,8 @@ tags:
     description: Gestão de eventos (paredões).
   - name: Participantes (Admin)
     description: Gestão de participantes.
+  - name: Eventos (Público)
+    description: Leitura pública de eventos, placares e relatórios (sem token).
   - name: Votos
     description: Registro público de votos.
   - name: Sistema
@@ -294,6 +296,81 @@ paths:
               example:
                 errors: ['Participante inválido']
 
+  /events:
+    get:
+      tags: [Eventos (Público)]
+      summary: Lista eventos (público)
+      description: |
+        Retorna todos os eventos (abertos e encerrados), do mais recente para o
+        mais antigo, cada um com seus participantes e a contagem de votos por
+        participante. Endpoint público — não exige `Authorization`. Alimenta a
+        tela pública `/votacao` e as listagens do admin.
+      operationId: listEvents
+      security: []
+      responses:
+        '200':
+          description: Lista de eventos com placar.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventWithResults'
+
+  /events/{id}:
+    get:
+      tags: [Eventos (Público)]
+      summary: Detalha um evento com placar (público)
+      description: |
+        Retorna um evento com seus participantes e a contagem de votos por
+        participante (placar). Endpoint público.
+      operationId: showEvent
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Evento encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventWithResults'
+        '404':
+          description: Evento inexistente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorsResponse'
+              example:
+                errors: ['Evento inválido']
+
+  /events/{id}/report:
+    get:
+      tags: [Eventos (Público)]
+      summary: Relatório de apuração de um evento (público)
+      description: |
+        URL de relatório exigida pelo desafio: total de votos, total por
+        participante e votos por hora, para um evento. Endpoint público.
+      operationId: eventReport
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Relatório do evento.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventReport'
+        '404':
+          description: Evento inexistente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorsResponse'
+              example:
+                errors: ['Evento inválido']
+
   /votes:
     post:
       tags: [Votos]
@@ -486,6 +563,100 @@ components:
         updated_at:
           type: string
           format: date-time
+
+    EventWithResults:
+      type: object
+      description: |
+        Evento com participantes embutidos e o placar (votos por participante).
+        Devolvido pelas leituras públicas `GET /events` e `GET /events/{id}`.
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        title:
+          type: string
+          example: 'Paredão #1'
+        closed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Momento de encerramento; nulo enquanto o evento está aberto.
+          example: null
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        partcipants:
+          type: array
+          description: Participantes do evento.
+          items:
+            $ref: '#/components/schemas/Partcipant'
+        votes:
+          type: object
+          description: |
+            Contagem de votos por participante, indexada pelo `id` do
+            participante (como string). O frontend calcula os percentuais.
+          additionalProperties:
+            type: integer
+          example:
+            '1': 128540
+            '2': 342910
+        total_votes:
+          type: integer
+          description: Soma de todos os votos do evento.
+          example: 471450
+
+    EventReport:
+      type: object
+      description: |
+        Relatório de apuração de um evento: total, total por participante e votos
+        por hora. Devolvido por `GET /events/{id}/report`.
+      properties:
+        event_id:
+          type: integer
+          format: int64
+          example: 1
+        title:
+          type: string
+          example: 'Paredão #1'
+        total_votes:
+          type: integer
+          example: 471450
+        per_partcipant:
+          type: array
+          items:
+            type: object
+            properties:
+              partcipant_id:
+                type: integer
+                format: int64
+                example: 1
+              nickname:
+                type: string
+                example: 'Fael'
+              count:
+                type: integer
+                example: 128540
+        per_hour:
+          type: array
+          description: Votos agrupados por hora (ordenados do mais antigo ao mais recente).
+          items:
+            $ref: '#/components/schemas/HourlyVotes'
+
+    HourlyVotes:
+      type: object
+      properties:
+        hour:
+          type: string
+          format: date-time
+          description: Início da hora (truncada) em ISO 8601.
+          example: '2026-07-08T20:00:00.000Z'
+        count:
+          type: integer
+          example: 51234
 
     CreatePartcipantRequest:
       type: object

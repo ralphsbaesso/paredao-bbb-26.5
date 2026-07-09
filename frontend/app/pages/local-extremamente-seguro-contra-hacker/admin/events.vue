@@ -7,13 +7,15 @@
  *   - Encerrar um evento aberto.
  *   - Visualizar um evento (aberto ou encerrado) com os votos por participante.
  *
- * Dados mockados (sem backend nesta atividade).
+ * Dados vindos do backend; ações via API autenticada, com refetch após cada uma.
  */
 import type { VotingEvent } from '~/composables/useVotingData'
 
 definePageMeta({ layout: 'admin', middleware: 'admin-auth' })
 
-const { events, participants, createEvent, closeEvent, totalVotes } = useVotingData()
+const { loadEvents, loadParticipants, createEvent, closeEvent, totalVotes } = useVotingData()
+const { events, pending, error, refresh } = loadEvents()
+const { participants } = loadParticipants()
 
 const nf = new Intl.NumberFormat('pt-BR')
 // timeZone fixo p/ saída determinística (evita divergência de hidratação SSR).
@@ -26,7 +28,9 @@ const df = new Intl.DateTimeFormat('pt-BR', {
 // --- Criação ----------------------------------------------------------------
 const createOpen = ref(false)
 const newName = ref('')
-const selectedIds = ref<string[]>([])
+const selectedIds = ref<number[]>([])
+const submitting = ref(false)
+const createError = ref<string | null>(null)
 
 const MIN_PARTICIPANTS = 2
 const MAX_PARTICIPANTS = 4
@@ -38,7 +42,7 @@ const canCreate = computed(
     selectedIds.value.length <= MAX_PARTICIPANTS,
 )
 
-function toggleParticipant(id: string) {
+function toggleParticipant(id: number) {
   if (selectedIds.value.includes(id)) {
     selectedIds.value = selectedIds.value.filter((x) => x !== id)
   } else if (selectedIds.value.length < MAX_PARTICIPANTS) {
@@ -49,13 +53,38 @@ function toggleParticipant(id: string) {
 function openCreate() {
   newName.value = ''
   selectedIds.value = []
+  createError.value = null
   createOpen.value = true
 }
 
-function submitCreate() {
-  if (!canCreate.value) return
-  createEvent(newName.value, selectedIds.value)
-  createOpen.value = false
+async function submitCreate() {
+  if (!canCreate.value || submitting.value) return
+  submitting.value = true
+  createError.value = null
+  try {
+    await createEvent(newName.value, selectedIds.value)
+    await refresh()
+    createOpen.value = false
+  } catch (e: unknown) {
+    const data = (e as { data?: { errors?: string[] } })?.data
+    createError.value = data?.errors?.[0] ?? 'Não foi possível criar o evento.'
+  } finally {
+    submitting.value = false
+  }
+}
+
+// --- Encerramento -----------------------------------------------------------
+const closingId = ref<number | null>(null)
+
+async function onCloseEvent(id: number) {
+  if (closingId.value !== null) return
+  closingId.value = id
+  try {
+    await closeEvent(id)
+    await refresh()
+  } finally {
+    closingId.value = null
+  }
 }
 
 // --- Visualização -----------------------------------------------------------
@@ -75,7 +104,24 @@ function openView(event: VotingEvent) {
       <AppButton @click="openCreate">+ Novo evento</AppButton>
     </div>
 
-    <ul class="flex flex-col gap-3">
+    <div v-if="pending" class="rounded-[var(--radius-card)] border border-line bg-surface p-8 text-center text-muted">
+      Carregando eventos…
+    </div>
+    <div
+      v-else-if="error"
+      class="rounded-[var(--radius-card)] border border-dashed border-line bg-surface p-8 text-center"
+    >
+      <p class="font-semibold text-content">Não foi possível carregar os eventos.</p>
+      <AppButton class="mt-3" variant="ghost" @click="refresh()">Tentar novamente</AppButton>
+    </div>
+    <div
+      v-else-if="!events.length"
+      class="rounded-[var(--radius-card)] border border-dashed border-line bg-surface p-8 text-center text-muted"
+    >
+      Nenhum evento ainda. Crie o primeiro paredão.
+    </div>
+
+    <ul v-else class="flex flex-col gap-3">
       <li
         v-for="event in events"
         :key="event.id"
@@ -106,8 +152,12 @@ function openView(event: VotingEvent) {
 
         <div class="flex shrink-0 gap-2">
           <AppButton variant="ghost" @click="openView(event)">Visualizar</AppButton>
-          <AppButton v-if="event.status === 'open'" @click="closeEvent(event.id)">
-            Encerrar
+          <AppButton
+            v-if="event.status === 'open'"
+            :disabled="closingId === event.id"
+            @click="onCloseEvent(event.id)"
+          >
+            {{ closingId === event.id ? 'Encerrando…' : 'Encerrar' }}
           </AppButton>
         </div>
       </li>
@@ -156,11 +206,21 @@ function openView(event: VotingEvent) {
             </li>
           </ul>
         </div>
+
+        <p
+          v-if="createError"
+          role="alert"
+          class="rounded-[var(--radius-control)] bg-red-500/10 px-3 py-2 text-sm font-medium text-red-500"
+        >
+          {{ createError }}
+        </p>
       </div>
 
       <template #footer>
-        <AppButton variant="ghost" @click="createOpen = false">Cancelar</AppButton>
-        <AppButton :disabled="!canCreate" @click="submitCreate">Criar evento</AppButton>
+        <AppButton variant="ghost" :disabled="submitting" @click="createOpen = false">Cancelar</AppButton>
+        <AppButton :disabled="!canCreate || submitting" @click="submitCreate">
+          {{ submitting ? 'Criando…' : 'Criar evento' }}
+        </AppButton>
       </template>
     </BaseModal>
 

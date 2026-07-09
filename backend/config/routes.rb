@@ -12,6 +12,11 @@ Rails.application.routes.draw do
     resources :partcipants, only: %i[index show create]
   end
 
+  # Public read surface for the voting UI (`/votacao`) — no token required.
+  resources :events, only: %i[index show] do
+    member { get :report }
+  end
+
   resources :votes, only: :create
 
   mount Rswag::Ui::Engine => '/api-docs'

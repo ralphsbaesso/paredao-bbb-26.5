@@ -8,7 +8,9 @@
  */
 definePageMeta({ layout: 'admin', middleware: 'admin-auth' })
 
-const { events, participants } = useVotingData()
+const { loadEvents, loadParticipants } = useVotingData()
+const { events } = loadEvents()
+const { participants } = loadParticipants()
 
 const cards = computed(() => [
   {

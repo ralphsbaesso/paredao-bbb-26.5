@@ -25,14 +25,10 @@ end
 # up to a total of 12 — re-running never produces duplicates.
 EVENT_TITLE = 'Primeiro paredão do BBB 26 1/2'
 PARTICIPANTS_TARGET = 12
+EVENT_PARTCIPANTS = Adm::CreateEvent::PARTCIPANTS_RANGE.max
 
-if Event.exists?
-  Rails.logger.info('[seeds] Event already present; skipping event seed.')
-else
-  Event.create!(title: EVENT_TITLE)
-  Rails.logger.info("[seeds] Event ready: #{EVENT_TITLE}")
-end
-
+# Ensure the participant pool exists first, so the event can be created with
+# its contestants already attached.
 missing = PARTICIPANTS_TARGET - Partcipant.count
 if missing.positive?
   missing.times do
@@ -46,4 +42,18 @@ if missing.positive?
   Rails.logger.info("[seeds] Created #{missing} participant(s); total is now #{Partcipant.count}.")
 else
   Rails.logger.info("[seeds] Already have #{Partcipant.count} participant(s); skipping participant seed.")
+end
+
+# Create the event through Adm::CreateEvent so it is never persisted without
+# contestants — the service enforces a valid number of participants.
+if Event.exists?
+  Rails.logger.info('[seeds] Event already present; skipping event seed.')
+else
+  partcipants = Partcipant.limit(EVENT_PARTCIPANTS).to_a
+  result = Adm::CreateEvent.call(title: EVENT_TITLE, partcipants: partcipants)
+  if result.status == 'success'
+    Rails.logger.info("[seeds] Event ready: #{EVENT_TITLE}")
+  else
+    Rails.logger.error("[seeds] Failed to create event: #{result.errors.join(', ')}")
+  end
 end
