@@ -9,6 +9,7 @@ Rails.application.routes.draw do
     resources :events, only: :create do
       member { patch :close }
     end
+    resources :partcipants, only: %i[index show create]
   end
 
   resources :votes, only: :create
