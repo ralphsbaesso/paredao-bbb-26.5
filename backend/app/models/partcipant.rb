@@ -1,0 +1,2 @@
+class Partcipant < ApplicationRecord
+end
