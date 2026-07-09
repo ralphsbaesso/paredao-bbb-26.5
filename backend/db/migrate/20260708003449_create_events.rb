@@ -2,7 +2,7 @@ class CreateEvents < ActiveRecord::Migration[8.1]
   def change
     create_table :events do |t|
       t.string :title, null: false
-      t.boolean :closed, null: false, default: false
+      t.datetime :closed_at
 
       t.timestamps
     end
