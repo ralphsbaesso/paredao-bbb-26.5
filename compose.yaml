@@ -23,7 +23,7 @@ services:
       # Rails mescla DATABASE_URL sobre config/database.yml; `db` resolve pela rede do Compose.
       DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-backend_development}"
       REDIS_URL: "${REDIS_URL:-redis://redis:6379/0}"
-      RAILS_MAX_THREADS: "${RAILS_MAX_THREADS:-5}"
+      RAILS_MAX_THREADS: "${RAILS_MAX_THREADS:-10}"
       # Libera o hostname interno do Compose no host authorization do Rails, para
       # que o scrape do Prometheus e o SSR do Nuxt (ambos via http://app:3000)
       # não tomem 403 Blocked host em development.
@@ -36,6 +36,13 @@ services:
       - tmp:/rails/tmp
     # `up` já sobe o servidor da API. O ENTRYPOINT prepara o banco antes disto.
     command: ["bin/rails","server","-b","0.0.0.0","-p","3000"]
+    # Sob teste de carga o reloader do development varre config/locales por request
+    # e os sockets do accept(2) explodem; o default baixo de FDs do daemon estoura
+    # com Errno::EMFILE. Elevar o teto de file descriptors do container.
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     depends_on:
       db:
         condition: service_healthy

@@ -20,7 +20,7 @@ services:
       # over the Compose network.
       DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-backend_development}"
       REDIS_URL: "${REDIS_URL:-redis://redis:6379/0}"
-      RAILS_MAX_THREADS: "${RAILS_MAX_THREADS:-5}"
+      RAILS_MAX_THREADS: "${RAILS_MAX_THREADS:-10}"
     volumes:
       # Bind-mount the source for hot-reload...
       - .:/rails
@@ -31,6 +31,13 @@ services:
     # `up` brings the container up idle (no Rails server): booting the API is left
     # to `task api:up`. The ENTRYPOINT still prepares the database before this.
     command: ["tail", "-f", "/dev/null"]
+    # Under load the development reloader globs config/locales per request and
+    # accept(2) sockets pile up; the daemon's low default FD limit blows up with
+    # Errno::EMFILE. Raise the container's file-descriptor ceiling.
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     depends_on:
       db:
         condition: service_healthy
