@@ -10,6 +10,81 @@ A votação do público é **anônima e ilimitada** (não há login de eleitor).
 autenticação descrita abaixo é **exclusiva de administradores**, que operam a
 área de gestão (paredões, participantes, relatórios).
 
+## Ambiente de desenvolvimento (Docker Compose + Taskfile)
+
+O `compose.yaml` da raiz orquestra o stack completo — `app` (API Rails),
+`db` (PostgreSQL 18), `redis` (Redis 8) e `frontend` (Nuxt 4 SSR). Os comandos
+são encapsulados por um [go-task](https://taskfile.dev) (`Taskfile.yaml`),
+que **depende do go-task instalado** na máquina. Liste os atalhos com
+`task --list`.
+
+Fluxo esperado:
+
+```bash
+cp .env.example .env   # ajuste as variáveis se necessário
+task up                # sobe app (em espera) + db + redis + frontend
+task setup             # cria/migra o banco e roda o seed (idempotente)
+task api:up            # inicia o servidor da API no container `app`
+```
+
+- **`task up`** sobe o ambiente com o serviço `app` apenas em espera
+  (`tail -f /dev/null`), **sem** iniciar o servidor Rails — o boot da API fica a
+  cargo de `task api:up`, evitando reiniciar todo o ambiente a cada reload.
+- **`task api:up`** assume os serviços já de pé (rode `task up` antes) e inicia
+  a API no container `app` (`bin/dev`); ela responde em `http://localhost:3000`
+  (ex.: `GET /up`).
+- **`task rspec`** sobe o ambiente (via `up`) e roda a suíte no container `app`;
+  aceita argumentos após `--` (ex.: `task rspec -- spec/models/vote_spec.rb:42`).
+- **`task build`**, **`task logs`** e **`task down`** constroem as imagens,
+  acompanham os logs e derrubam o ambiente, respectivamente.
+
+O frontend responde em `http://localhost:3001` e alcança a API pela rede interna
+do Compose via `NUXT_PUBLIC_API_BASE` (padrão `http://app:3000`). O
+`backend/compose.yaml` continua válido para trabalhar o backend isoladamente.
+
+## Observabilidade (Prometheus + Grafana)
+
+O `compose.yaml` da raiz também sobe a stack de monitoramento (task 009). A API
+Rails é instrumentada com [Yabeda](https://github.com/yabeda-rb/yabeda) e expõe
+métricas no formato Prometheus.
+
+| Serviço | URL | Credenciais |
+| --- | --- | --- |
+| Métricas da API | http://localhost:3000/metrics | — |
+| Prometheus | http://localhost:9090 | — |
+| Grafana | http://localhost:3002 | `GRAFANA_USER` / `GRAFANA_PASSWORD` (padrão `admin`/`admin`) |
+
+As portas são configuráveis via `.env` (`PROMETHEUS_PORT`, `GRAFANA_PORT`,
+`GRAFANA_USER`, `GRAFANA_PASSWORD`). Toda a configuração é versionada em
+`infra/monitoring/` (scrape do Prometheus, data source e dashboards do Grafana —
+_provisioning as code_, nada criado só pela UI).
+
+> ⚠️ O Prometheus só coleta métricas com o **servidor da API de pé**: rode
+> `task up` e depois `task api:up`. Até lá o container `app` fica em espera e o
+> alvo aparece como _down_.
+
+**Métricas expostas** (`/metrics`):
+
+- `rails_requests_total` — contador de requisições por `controller`/`action`/`status`.
+- `rails_request_duration_seconds` — histograma de latência (para percentis p50/p95/p99).
+- `paredao_votes_total` — contador de votos por `event`/`participant` (métrica de negócio).
+
+**Dashboards** (provisionados na pasta _Paredão BBB_ do Grafana):
+
+1. **Saúde da API** — requisições/s, latência (p50/p95/p99) e taxa de erros por rota.
+2. **Negócio** — votos/s, votos por minuto e total de votos por participante.
+3. **SLO/SLI** — disponibilidade e latência do fluxo de votação, com _error budget_.
+
+**SLO definido:** 99% das requisições de voto (`POST /votes`) respondidas com
+sucesso (não-5xx) em menos de 500 ms, em janela deslizante de 30 min. O SLI
+correspondente é calculado a partir de `rails_requests_total` /
+`rails_request_duration_seconds` e exibido no dashboard SLO/SLI.
+
+**Logs estruturados:** a API emite logs em JSON nos quatro níveis (`debug`,
+`info`, `warn`, `error`) — ver `AddVote` e `config/initializers/structured_logging.rb`.
+Uma execução com erro é registrada no nível `error` quando o registro do voto
+falha de forma inesperada.
+
 ## Autenticação de administradores
 
 O backend é **API-only** (sem views, sem sessão por cookie): a autenticação é
