@@ -84,6 +84,30 @@ O frontend responde em `http://localhost:3001` e alcança a API pela rede intern
 do Compose via `NUXT_PUBLIC_API_BASE` (padrão `http://app:3000`). O
 `backend/compose.yaml` continua válido para trabalhar o backend isoladamente.
 
+### Sem o go-task? Use Docker Compose direto
+
+Cada task é só um atalho para um `docker compose -f compose.yaml ...` sobre o
+`compose.yaml` da raiz. Sem o go-task instalado, rode o equivalente **a partir da
+raiz do repositório**:
+
+| Task | Comando Docker Compose equivalente (da raiz) |
+| --- | --- |
+| `task up` | `docker compose -f compose.yaml up -d` |
+| `task setup` | `docker compose -f compose.yaml exec app bin/rails db:prepare db:seed` |
+| `task rspec -- ARGS` | `docker compose -f compose.yaml exec app bundle exec rspec ARGS` |
+| `task build` | `docker compose -f compose.yaml build` |
+| `task logs` | `docker compose -f compose.yaml logs -f` |
+| `task down` | `docker compose -f compose.yaml down` |
+
+Exemplo, reproduzindo o fluxo `task up` + `task setup`:
+
+```bash
+docker compose -f compose.yaml up -d
+docker compose -f compose.yaml exec app bin/rails db:prepare db:seed
+```
+
+O equivalente do `task load-test` está na seção [Teste de carga (k6)](#teste-de-carga-k6).
+
 ## Observabilidade (Prometheus + Grafana)
 
 O `compose.yaml` da raiz também sobe a stack de monitoramento (task 009). A API
