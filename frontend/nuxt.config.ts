@@ -28,6 +28,10 @@ export default defineNuxtConfig({
       // NUXT_PUBLIC_API_BASE — nunca hardcoded no build. Precisa ser um host que
       // o navegador alcance (ex.: http://localhost:3000), não o hostname interno.
       apiBase: '',
+      // URLs dos serviços de observabilidade linkados no painel admin.
+      // Sobrescritas em runtime por NUXT_PUBLIC_GRAFANA_URL / _PROMETHEUS_URL.
+      grafanaUrl: '',
+      prometheusUrl: '',
     },
   },
 })

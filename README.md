@@ -85,6 +85,43 @@ correspondente é calculado a partir de `rails_requests_total` /
 Uma execução com erro é registrada no nível `error` quando o registro do voto
 falha de forma inesperada.
 
+## Teste de carga (k6)
+
+A rota pública `POST /votes` tem um teste de carga com [k6](https://k6.io),
+executado **via Docker** (não exige o k6 instalado). O script fica em
+`load-test/votes.js` e valida o resultado contra o SLO acima através dos
+`thresholds` do k6 (`p95<500ms`, `p99<500ms`, `http_req_failed<1%`) — a task 013
+(`docs/tasks/013-loast-test.md`) descreve a atividade em detalhe.
+
+**Pré-requisito:** a API precisa estar no ar e com o seed aplicado (um evento
+aberto com ≥2 participantes). Rode o fluxo normal antes: `task up` → `task setup`
+→ `task api:up`. O script descobre `event_id` e os participantes automaticamente
+via `GET /events`.
+
+```bash
+task load-test                      # cenário smoke (5 VUs, 30s) — rode este primeiro
+task load-test SCENARIO=ramp_to_1k  # cenário-alvo: sobe em degraus até ~1000 req/s
+```
+
+Variáveis aceitas: `SCENARIO` (`smoke` padrão | `ramp_to_1k`) e `BASE_URL`
+(padrão `http://localhost:3000`). Equivalente em Docker puro, a partir da raiz:
+
+```bash
+docker run --rm -i --network host \
+  -e BASE_URL=http://localhost:3000 \
+  -e SCENARIO=smoke \
+  -v "$PWD/load-test:/scripts" \
+  grafana/k6 run /scripts/votes.js
+```
+
+Cada requisição envia o header `load-test: True` (contrato da task 012) e o
+resumo final do k6 reporta req/s, latências (p95/p99) e `http_req_failed`, com os
+`thresholds` avaliados como pass/fail.
+
+> ⚠️ Com o `app` em um único worker Puma (`RAILS_MAX_THREADS=5`, sem
+> `WEB_CONCURRENCY`), é **esperado** que 1000 req/s sustentado estoure o SLO —
+> o teste serve justamente para **revelar o teto de capacidade** do setup atual.
+
 ## Autenticação de administradores
 
 O backend é **API-only** (sem views, sem sessão por cookie): a autenticação é

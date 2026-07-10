@@ -26,6 +26,14 @@ const cards = computed(() => [
     meta: `${participants.value.length} participante(s)`,
   },
 ])
+
+const config = useRuntimeConfig()
+
+const tools = computed(() => [
+  { name: 'Swagger', href: `${config.public.apiBase}/api-docs` },
+  { name: 'Grafana', href: config.public.grafanaUrl },
+  { name: 'Prometheus', href: config.public.prometheusUrl },
+].filter((tool) => tool.href))
 </script>
 
 <template>
@@ -48,6 +56,25 @@ const cards = computed(() => [
           </span>
         </div>
       </NuxtLink>
+    </div>
+
+    <div v-if="tools.length" class="mt-10">
+      <h2 class="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
+        Serviços
+      </h2>
+      <div class="flex flex-wrap gap-3">
+        <a
+          v-for="tool in tools"
+          :key="tool.name"
+          :href="tool.href"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="group flex items-center gap-2 rounded-[var(--radius-control)] border border-line bg-surface px-4 py-2 text-sm font-semibold text-content shadow-sm transition hover:-translate-y-0.5 hover:border-primary hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          {{ tool.name }}
+          <span class="text-muted transition group-hover:text-primary">↗</span>
+        </a>
+      </div>
     </div>
   </AdminShell>
 </template>

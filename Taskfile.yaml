@@ -47,3 +47,16 @@ tasks:
     desc: Para e remove todos os serviços.
     cmds:
       - '{{.COMPOSE}} down'
+
+  load-test:
+    desc: 'Roda o teste de carga k6 contra POST /votes. Ex.: task load-test SCENARIO=ramp_to_1k'
+    vars:
+      SCENARIO: '{{.SCENARIO | default "smoke"}}'
+      BASE_URL: '{{.BASE_URL | default "http://localhost:3000"}}'
+    cmds:
+      - >-
+        docker run --rm -i --network host
+        -e BASE_URL={{.BASE_URL}}
+        -e SCENARIO={{.SCENARIO}}
+        -v "{{.TASKFILE_DIR}}/load-test:/scripts"
+        grafana/k6 run /scripts/votes.js
