@@ -36,19 +36,22 @@ const SCENARIOS = {
     vus: 5,
     duration: '30s',
   },
-  // Cenario-alvo do desafio: sobe em degraus ate ~1000 req/s.
+  // Cenario-alvo do desafio: 2 minutos exatos — 1o minuto subindo a carga
+  // progressivamente de 0 ate 1000 req/s, 2o minuto sustentando o pico de 1000 req/s.
+  // O executor arrival-rate dispara no relogio (open model), entao a duracao total
+  // e deterministica (soma das stages = 120s), independente da latencia da app.
   ramp_to_1k: {
     executor: 'ramping-arrival-rate',
-    startRate: 50,
+    startRate: 0,
     timeUnit: '1s',
     preAllocatedVUs: 200,
-    maxVUs: 1500,
+    // Folga alta de propósito: quando a app satura e a latencia sobe, o k6 precisa de
+    // mais VUs concorrentes p/ manter a taxa de chegada. Se bater no teto, ele reporta
+    // dropped_iterations — e o teste revela o teto real em vez de ser limitado pelo gerador.
+    maxVUs: 2000,
     stages: [
-      { target: 100, duration: '30s' },
-      { target: 500, duration: '1m' },
-      { target: 1000, duration: '1m' },
-      { target: 1000, duration: '2m' }, // plato no alvo
-      { target: 0, duration: '30s' },
+      { target: 1000, duration: '60s' }, // minuto 1: rampa progressiva 0 -> 1000 req/s
+      { target: 1000, duration: '60s' }, // minuto 2: sustenta o pico de 1000 req/s
     ],
   },
 };
