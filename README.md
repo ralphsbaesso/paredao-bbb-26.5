@@ -10,6 +10,52 @@ A votação do público é **anônima e ilimitada** (não há login de eleitor).
 autenticação descrita abaixo é **exclusiva de administradores**, que operam a
 área de gestão (paredões, participantes, relatórios).
 
+## O que está sendo entregue
+
+Mapeamento dos requisitos do desafio (`docs/desafio-tecnico-fullstack.md`) ao que
+está implementado neste repositório.
+
+### Obrigatórios
+
+- ✅ **Frontend web** (Nuxt 4 SSR) com a tela de votação, seleção do participante
+  e confirmação de voto — `frontend/app/pages/votacao.vue`.
+- ✅ **API REST** que computa os votos — `POST /votes`
+  (`backend/app/controllers/votes_controller.rb` → serviço
+  `backend/app/services/add_vote.rb`).
+- ✅ **Panorama percentual** por candidato — cálculo e exibição em
+  `frontend/app/components/EventVotes.vue`.
+- ✅ **URL de consulta** com total geral, total por participante e **votos por
+  hora** — `GET /events/:id/report` (`EventsController#report`).
+- ✅ **Voto ilimitado** por usuário (regra do desafio).
+- ✅ **Resistência a bots**: rate limiter por IP no Redis (janela fixa, `429` com
+  `Retry-After`, _fail-open_ se o Redis cair) — `VoteRateLimiter` / task 012.
+
+### Diferenciais
+
+- ✅ **Conteinerização**: API e Frontend como serviços separados, com Dockerfiles
+  próprios (dev e produção) e `compose.yaml` na raiz.
+- ✅ **Teste de carga**: script k6 com cenário até ~1000 req/s
+  (`load-test/votes.js`, `task load-test`) — task 013.
+- ✅ **SLO/SLI**: SLO definido e SLI calculado por PromQL, exibido em dashboard.
+- ✅ **Monitoração + 3 dashboards** (Grafana provisionado como código): Saúde da
+  API, Negócio e SLO/SLI.
+- ✅ **Instrumentação da API** com Yabeda expondo métricas Prometheus em
+  `/metrics`.
+- ✅ **Documentação das APIs** (OpenAPI 3 + Swagger UI em `/api-docs`) — task 010.
+- ✅ **Extra 1 — logs** `debug`/`info`/`warn`/`error`, incluindo um caso de erro
+  registrado no nível `error`.
+- ✅ **Extra 2 — métricas em tempo real** com Prometheus + Grafana (3 dashboards).
+
+### Em aberto / parcial
+
+- ⚠️ **CI/CD**: o CI roda lint + análise de segurança (RuboCop, Brakeman,
+  bundler-audit); ainda **não** roda RSpec nem publica imagem/deploy (sem CD).
+- ⚠️ **IaC de produção**: Kamal presente como _scaffold_ (não é um alvo real);
+  `compose.prod.yaml` e `infra/nginx/` (reverse proxy + TLS) são **só
+  especificação** — task 912.
+- ⚠️ **Panorama ao vivo do paredão aberto**: no público, o percentual é exibido
+  para eventos já encerrados; após votar no evento aberto mostra-se a confirmação.
+
 ## Ambiente de desenvolvimento (Docker Compose + Taskfile)
 
 O `compose.yaml` da raiz orquestra o stack completo — `app` (API Rails),
