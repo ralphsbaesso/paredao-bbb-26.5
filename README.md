@@ -22,17 +22,13 @@ Fluxo esperado:
 
 ```bash
 cp .env.example .env   # ajuste as variáveis se necessário
-task up                # sobe app (em espera) + db + redis + frontend
+task up                # sobe todo o ambiente: app (API Rails) + db + redis + frontend
 task setup             # cria/migra o banco e roda o seed (idempotente)
-task api:up            # inicia o servidor da API no container `app`
 ```
 
-- **`task up`** sobe o ambiente com o serviço `app` apenas em espera
-  (`tail -f /dev/null`), **sem** iniciar o servidor Rails — o boot da API fica a
-  cargo de `task api:up`, evitando reiniciar todo o ambiente a cada reload.
-- **`task api:up`** assume os serviços já de pé (rode `task up` antes) e inicia
-  a API no container `app` (`bin/dev`); ela responde em `http://localhost:3000`
-  (ex.: `GET /up`).
+- **`task up`** sobe todo o ambiente — `app` (API Rails, já com o servidor de pé
+  em `http://localhost:3000`, ex.: `GET /up`), `db`, `redis`, `frontend` e a
+  stack de monitoramento (Prometheus/Grafana).
 - **`task rspec`** sobe o ambiente (via `up`) e roda a suíte no container `app`;
   aceita argumentos após `--` (ex.: `task rspec -- spec/models/vote_spec.rb:42`).
 - **`task build`**, **`task logs`** e **`task down`** constroem as imagens,
@@ -59,9 +55,9 @@ As portas são configuráveis via `.env` (`PROMETHEUS_PORT`, `GRAFANA_PORT`,
 `infra/monitoring/` (scrape do Prometheus, data source e dashboards do Grafana —
 _provisioning as code_, nada criado só pela UI).
 
-> ⚠️ O Prometheus só coleta métricas com o **servidor da API de pé**: rode
-> `task up` e depois `task api:up`. Até lá o container `app` fica em espera e o
-> alvo aparece como _down_.
+> ℹ️ O Prometheus faz scrape da API em `app:3000/metrics`. Como o `task up` já
+> sobe o servidor da API, o alvo aparece _up_ assim que o ambiente termina de
+> subir.
 
 **Métricas expostas** (`/metrics`):
 
@@ -94,9 +90,8 @@ executado **via Docker** (não exige o k6 instalado). O script fica em
 (`docs/tasks/013-loast-test.md`) descreve a atividade em detalhe.
 
 **Pré-requisito:** a API precisa estar no ar e com o seed aplicado (um evento
-aberto com ≥2 participantes). Rode o fluxo normal antes: `task up` → `task setup`
-→ `task api:up`. O script descobre `event_id` e os participantes automaticamente
-via `GET /events`.
+aberto com ≥2 participantes). Rode o fluxo normal antes: `task up` → `task setup`.
+O script descobre `event_id` e os participantes automaticamente via `GET /events`.
 
 ```bash
 task load-test                      # cenário smoke (5 VUs, 30s) — rode este primeiro

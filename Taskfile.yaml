@@ -1,7 +1,7 @@
 # Taskfile do Paredão BBB 26.5 — atalhos para o ambiente de desenvolvimento.
 # Requer go-task: https://taskfile.dev  (instale e rode `task --list`).
 #
-# Fluxo esperado:  task up  ->  task setup  ->  task api:up
+# Fluxo esperado:  task up  ->  task setup
 #
 # Todas as tasks operam sobre o compose.yaml DA RAIZ (backend + frontend).
 version: '3'
@@ -12,14 +12,9 @@ vars:
 
 tasks:
   up:
-    desc: Sobe todo o ambiente (app em espera, sem servidor Rails + db + redis + frontend).
+    desc: Sobe todo o ambiente (app com a API Rails + db + redis + frontend + monitoramento).
     cmds:
       - '{{.COMPOSE}} up -d'
-
-  api:up:
-    desc: Inicia o servidor da API no container `app` já em execução (assume `up` prévio).
-    cmds:
-      - '{{.COMPOSE}} exec app bin/dev'
 
   setup:
     desc: Prepara o banco do backend (cria, migra e roda o seed); idempotente.

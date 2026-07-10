@@ -24,14 +24,17 @@ services:
       DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-backend_development}"
       REDIS_URL: "${REDIS_URL:-redis://redis:6379/0}"
       RAILS_MAX_THREADS: "${RAILS_MAX_THREADS:-5}"
+      # Libera o hostname interno do Compose no host authorization do Rails, para
+      # que o scrape do Prometheus e o SSR do Nuxt (ambos via http://app:3000)
+      # não tomem 403 Blocked host em development.
+      RAILS_DEVELOPMENT_HOSTS: "${RAILS_DEVELOPMENT_HOSTS:-app}"
     volumes:
       # Bind-mount do código para hot-reload...
       - ./backend:/rails
       # ...mantendo diretórios geridos pelo container fora do mount do host.
       - bundle:/usr/local/bundle
       - tmp:/rails/tmp
-    # `up` sobe o container apenas em espera (sem servidor Rails): o boot da API
-    # fica a cargo de `task api:up`. O ENTRYPOINT ainda prepara o banco antes disto.
+    # `up` já sobe o servidor da API. O ENTRYPOINT prepara o banco antes disto.
     command: ["bin/rails","server","-b","0.0.0.0","-p","3000"]
     depends_on:
       db:

@@ -32,12 +32,11 @@ Fully implemented, not a scaffold. The backend has domain models, admin + public
 
 ```bash
 cp .env.example .env   # then adjust if needed
-task up                # bring up app (idle) + db + redis + frontend
+task up                # bring up the whole stack: app (Rails API) + db + redis + frontend + monitoring
 task setup             # create/migrate/seed the DB (idempotent)
-task api:up            # boot the Rails API in the `app` container → http://localhost:3000
 ```
 
-`task up` leaves the `app` container idle (`tail -f /dev/null`); the API only boots via `task api:up`, so a reload does not restart the whole stack. Other tasks:
+`task up` boots the entire environment, including the Rails API in the `app` container (serving at http://localhost:3000). Other tasks:
 
 ```bash
 task rspec -- spec/path/to/file_spec.rb:42   # run RSpec in the container (args after --)
